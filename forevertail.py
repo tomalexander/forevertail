@@ -14,6 +14,7 @@ from docopt import docopt
 import os
 import glob
 import sys
+import time
 
 def get_matching_files(paths):
     all_files = []
@@ -80,7 +81,12 @@ if __name__ == "__main__":
     print(args)
     manager = TailManager()
     while True:
+        start = time.time()
         for f in get_matching_files(args["<path>"]):
             manager.add_path(f)
         for l in manager.get_new_lines():
             print(l, end="", flush=True)
+        end = time.time()
+        run_time = end - start
+        if run_time < 5:
+            time.sleep(5.0 - run_time)
