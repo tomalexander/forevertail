@@ -51,7 +51,7 @@ class TailFile(object):
         if size_on_disk > self.bytes_read:
             with open(self.path, "rb") as f:
                 f.seek(self.bytes_read)
-                new_data = f.read(size_on_disk - self.bytes_read)
+                new_data = f.read(min(size_on_disk - self.bytes_read, 4096))
                 if b'\n' in new_data:
                     self._has_line = True
                 self.read_buffer += new_data
@@ -65,27 +65,24 @@ class TailFile(object):
     def get_line(self):
         if not self._has_line:
             return None
-        try:
-            index_of_newline = self.read_buffer.index(b'\n')
-            line_bytes = self.read_buffer[:index_of_newline+1] # +1 to include newline
-            line_string = line_bytes.decode("UTF-8")
-            self.read_buffer = self.read_buffer[index_of_newline+1:]
-            if not b'\n' in self.read_buffer:
-                self._has_line = False
-            return line_string
-        except UnicodeError:
-            print("Error decoding unicode", file=sys.stderr)
+
+        index_of_newline = self.read_buffer.index(b'\n')
+        line_bytes = self.read_buffer[:index_of_newline+1] # +1 to include newline
+        self.read_buffer = self.read_buffer[index_of_newline+1:]
+        if not b'\n' in self.read_buffer:
+            self._has_line = False
+        return line_bytes
 
 if __name__ == "__main__":
     args = docopt(__doc__, version="forevertail 0.1")
-    print(args)
     manager = TailManager()
     while True:
         start = time.time()
         for f in get_matching_files(args["<path>"]):
             manager.add_path(f)
         for l in manager.get_new_lines():
-            print(l, end="", flush=True)
+            sys.stdout.buffer.write(l)
+            sys.stdout.flush()
         end = time.time()
         run_time = end - start
         if run_time < 5:
